@@ -11,6 +11,17 @@ from .core.config import settings
 from .core.database import Base, engine
 from .api.v1.router import api_router
 from .schemas.common import ApiErrorDetail, ApiResponse
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def home():
+    return {
+        "message": "Pledge Killer API is running!"
+    }
+
+# Your other routes below...
 
 
 @asynccontextmanager
