@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pledge_fighter_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pledge_fighter}
+      POSTGRES_USER: ${POSTGRES_USER:-pledge_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pledge_secure_password_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pledge_user -d pledge_fighter"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pledge_fighter_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pledge_fighter_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://pledge_user:pledge_secure_password_2026@postgres:5432/pledge_fighter
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-pledge-fighter-production-secret-change-me}
+      STORAGE_TYPE: local
+      LOCAL_STORAGE_DIR: /app/storage_uploads
+    volumes:
+      - storage_uploads:/app/storage_uploads
+    ports:
+      - "8000:8000"
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pledge_fighter_worker
+    restart: unless-stopped
+    command: celery -A app.workers.tasks.celery_app worker --loglevel=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://pledge_user:pledge_secure_password_2026@postgres:5432/pledge_fighter
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-pledge-fighter-production-secret-change-me}
+      STORAGE_TYPE: local
+      LOCAL_STORAGE_DIR: /app/storage_uploads
+    volumes:
+      - storage_uploads:/app/storage_uploads
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: pledge_fighter_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
+  storage_uploads:
