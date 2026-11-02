@@ -93,7 +93,7 @@ export const ReportPage: React.FC = () => {
             <td>${r.peer_start_line ? `L${r.peer_start_line}–${r.peer_end_line}` : '—'}</td>
             <td class="${r.match_type === 'LOGICAL' ? 'logical' : 'verbatim'}">${r.match_type === 'LOGICAL' ? 'Logical' : 'Verbatim'}</td>
             <td>${r.function_name ? escHtml(r.function_name) : '—'}</td>
-            <td>${r.token_count ?? '—'}</td>
+            <td>—</td>
           </tr>`
         )
       )
