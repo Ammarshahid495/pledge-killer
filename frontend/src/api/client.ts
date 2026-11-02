@@ -2,7 +2,7 @@
  * Pledge Fighter API Client.
  */
 
-const API_BASE = '/api/v1';
+const API_BASE = 'https://pledge-killer.onrender.com/api/v1';
 
 export interface User {
   id: string;
