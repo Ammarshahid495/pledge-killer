@@ -249,6 +249,34 @@ class ApiClient {
   async getReportDetail(reportId: string): Promise<ReportDetail> {
     return this.request<ReportDetail>(`/reports/me/${reportId}`);
   }
+
+  /**
+   * Download the report as a JSON file. The endpoint returns raw JSON (not the
+   * {success, data} envelope) and requires the Authorization header, so it
+   * cannot go through request() or window.open().
+   */
+  async downloadReportJSON(reportId: string): Promise<void> {
+    const headers = new Headers();
+    if (this.token) {
+      headers.set('Authorization', `Bearer ${this.token}`);
+    }
+
+    const response = await fetch(`${API_BASE}/reports/me/${reportId}/download`, { headers });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail?.message || err.error?.message || 'Failed to download report');
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report_${reportId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 }
 
 export const api = new ApiClient();
