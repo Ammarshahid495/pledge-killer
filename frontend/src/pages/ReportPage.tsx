@@ -44,9 +44,13 @@ export const ReportPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, [reportId]);
 
-  const handleDownloadJSON = () => {
+  const handleDownloadJSON = async () => {
     if (!reportId) return;
-    window.open(`/api/v1/reports/me/${reportId}/download`, '_blank');
+    try {
+      await api.downloadReportJSON(reportId);
+    } catch (err: any) {
+      window.alert(err.message || 'Failed to download report');
+    }
   };
 
   const handleDownloadPDF = () => {
