@@ -124,6 +124,44 @@ export interface ReportSummary {
   engine_version: string;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  display_name: 'Name',
+  email: 'Email',
+  password: 'Password',
+  confirm_password: 'Confirm password',
+  deadline: 'Deadline',
+  title: 'Title',
+  token: 'Reset link',
+};
+
+/**
+ * Turns any error body into one readable sentence.
+ * FastAPI sends HTTPException as {detail: {code, message}} and validation
+ * errors (422) as {detail: [{loc, msg}, ...]}; the app's own handler uses
+ * {error: {message}}.
+ */
+function extractErrorMessage(data: any, status: number): string {
+  const detail = data?.detail;
+  if (typeof detail === 'string' && detail) return detail;
+  if (detail && !Array.isArray(detail) && detail.message) return detail.message;
+  if (Array.isArray(detail) && detail.length > 0) {
+    return detail
+      .map((d: any) => {
+        const field = Array.isArray(d.loc) ? String(d.loc[d.loc.length - 1]) : '';
+        const msg = String(d.msg || 'Invalid value').replace(/^Value error, /, '');
+        if (/field required/i.test(msg) && field) {
+          return `${FIELD_LABELS[field] || field} is required`;
+        }
+        return msg;
+      })
+      .join('. ');
+  }
+  if (data?.error?.message) return data.error.message;
+  if (data?.message) return data.message;
+  if (status >= 500) return 'Something went wrong on the server. Please try again in a moment.';
+  return 'Request failed. Please try again.';
+}
+
 class ApiClient {
   private token: string | null = localStorage.getItem('access_token');
 
@@ -150,16 +188,20 @@ class ApiClient {
       headers.set('Content-Type', 'application/json');
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch {
+      throw new Error('Cannot reach the server. Check your internet connection and try again.');
+    }
 
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok || !data.success) {
-      const msg = data.error?.message || data.message || 'API request failed';
-      throw new Error(msg);
+      throw new Error(extractErrorMessage(data, response.status));
     }
 
     return data.data;
@@ -194,8 +236,22 @@ class ApiClient {
     return this.request<User>('/auth/me');
   }
 
+  async forgotPassword(email: string): Promise<{ email_sent: boolean }> {
+    return this.request<{ email_sent: boolean }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(token: string, password: string, confirmPassword: string): Promise<void> {
+    await this.request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password, confirm_password: confirmPassword }),
+    });
+  }
+
   // Classrooms
-  async createClassroom(body: { title: string; description?: string; min_submissions?: number; deadline?: string; max_participants?: number }): Promise<Classroom> {
+  async createClassroom(body: { title: string; description?: string; min_submissions?: number; deadline: string; max_participants?: number }): Promise<Classroom> {
     return this.request<Classroom>('/classrooms', {
       method: 'POST',
       body: JSON.stringify(body),
