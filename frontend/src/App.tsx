@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ClassroomPage } from './pages/ClassroomPage';
+import { ReportPage } from './pages/ReportPage';
 import { api } from './api/client';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -97,8 +98,14 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-     
-          
+          <Route
+            path="/reports/:reportId"
+            element={
+              <ProtectedRoute>
+                <ReportPage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
